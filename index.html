@@ -277,6 +277,11 @@ body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:var(--b)
           <button class="btn" onclick="avancarEtapa()" id="btn-avancar" style="background:var(--ok);color:#fff;border-color:var(--ok)">Avançar etapa →</button>
         </div>
         <div id="det-dados" style="font-size:12px;line-height:2;color:var(--ts)">—</div>
+        <div style="margin-top:12px;padding-top:12px;border-top:.5px solid var(--br);display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" onclick="voltarEtapa()" style="border-color:var(--warn);color:var(--warn)">← Voltar etapa</button>
+          <button class="btn" onclick="avancarEtapa()" id="btn-avancar" style="background:var(--ok);color:#fff;border-color:var(--ok)">Avançar etapa →</button>
+          <button class="btn" onclick="confirmarExcluirProjeto()" style="border-color:var(--err);color:var(--err);margin-left:auto">🗑 Excluir projeto</button>
+        </div>
       </div>
     </div>
   </div>
@@ -302,7 +307,7 @@ body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:var(--b)
 
 <!-- PROPOSTA -->
 <div class="pg" id="pg-prop">
-  <div class="ph"><div><div class="pt">Proposta de Serviço</div><div class="ps">Preencha e exporte em PDF</div></div><button class="btn bs" onclick="xpdf('doc-prop','Proposta')">Exportar PDF</button></div>
+  <div class="ph"><div><div class="pt">Proposta de Serviço</div><div class="ps">Preencha e exporte em PDF</div></div></div>
   <div style="display:grid;grid-template-columns:290px 1fr;gap:14px;align-items:start">
     <div class="sec">
       <div class="tabs"><div class="tab on" onclick="stab(this,'pt1')">Cliente</div><div class="tab" onclick="stab(this,'pt2')">Serviço</div><div class="tab" onclick="stab(this,'pt3')">Entrega</div><div class="tab" onclick="stab(this,'pt4')">Financeiro</div></div>
@@ -358,7 +363,7 @@ body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:var(--b)
 
 <!-- CONTRATO -->
 <div class="pg" id="pg-cont">
-  <div class="ph"><div><div class="pt">Contrato de Prestação de Serviço</div><div class="ps">Preencha e exporte em PDF</div></div><button class="btn bs" onclick="xpdf('doc-cont','Contrato')">Exportar PDF</button></div>
+  <div class="ph"><div><div class="pt">Contrato de Prestação de Serviço</div><div class="ps">Preencha e exporte em PDF</div></div></div>
   <div style="display:grid;grid-template-columns:290px 1fr;gap:14px;align-items:start">
     <div class="sec">
       <div class="tabs"><div class="tab on" onclick="stab(this,'ct1')">Partes</div><div class="tab" onclick="stab(this,'ct2')">Objeto</div><div class="tab" onclick="stab(this,'ct3')">Honorários</div><div class="tab" onclick="stab(this,'ct4')">Prazos</div></div>
@@ -891,7 +896,7 @@ function toggleAllCk(){
 async function avancarEtapa(){
   var fluxo=curProj._fluxo;
   if(curEtapaIdx>=fluxo.length-1){
-    // Concluir projeto
+    if(!confirm('Concluir este projeto?'))return;
     await sb('projetos','PATCH',{status:'concluido'},'?id=eq.'+curProj.id);
     toast('Projeto concluído! 🎉');
     nav('proj',null);loadProjetos();return;
@@ -904,6 +909,25 @@ async function avancarEtapa(){
   renderProjDet();
 }
 
+async function voltarEtapa(){
+  if(curEtapaIdx<=0){toast('Já está na primeira etapa.',false);return;}
+  var novaEtapa=curEtapaIdx-1;
+  await sb('projetos','PATCH',{etapa:String(novaEtapa)},'?id=eq.'+curProj.id);
+  curProj.etapa=String(novaEtapa);
+  curEtapaIdx=novaEtapa;
+  toast('Voltou para: '+curProj._fluxo[novaEtapa].label);
+  renderProjDet();
+}
+
+async function confirmarExcluirProjeto(){
+  if(!confirm('Excluir o projeto "'+curProj.nome+'"? Esta ação não pode ser desfeita.'))return;
+  await sb('checklist_tasks','DELETE',null,'?projeto_id=eq.'+curProj.id);
+  await sb('checklist_grupos','DELETE',null,'?projeto_id=eq.'+curProj.id);
+  await sb('projetos','DELETE',null,'?id=eq.'+curProj.id);
+  toast('Projeto excluído.');
+  nav('proj',null);loadProjetos();loadDash();
+}
+
 // ══════════════════════════════════════
 // CLIENTES
 // ══════════════════════════════════════
@@ -912,8 +936,8 @@ async function loadClientes(){
   d.innerHTML='<div class="loading"><div class="spin"></div>Carregando...</div>';
   var clis=await sb('clientes','GET',null,'?order=nome.asc');
   if(!clis||!clis.length){d.innerHTML='<div style="font-size:12px;color:var(--tl);padding:12px">Nenhum cliente ainda.</div>';return;}
-  d.innerHTML='<table class="tbl"><thead><tr><th></th><th>Nome</th><th>E-mail</th><th>WhatsApp</th></tr></thead><tbody>'+
-    clis.map(c=>`<tr><td><div class="av">${ini(c.nome)}</div></td><td>${esc(c.nome)}</td><td style="color:var(--tl);font-size:11px">${esc(c.email||'—')}</td><td style="color:var(--tl);font-size:11px">${esc(c.whatsapp||'—')}</td></tr>`).join('')+'</tbody></table>';
+  d.innerHTML='<table class="tbl"><thead><tr><th></th><th>Nome</th><th>E-mail</th><th>WhatsApp</th><th></th></tr></thead><tbody>'+
+    clis.map(c=>`<tr><td><div class="av">${ini(c.nome)}</div></td><td>${esc(c.nome)}</td><td style="color:var(--tl);font-size:11px">${esc(c.email||'—')}</td><td style="color:var(--tl);font-size:11px">${esc(c.whatsapp||'—')}</td><td><button class="btn" style="border-color:var(--err);color:var(--err);padding:3px 8px;font-size:10px" onclick="excluirCliente('${c.id}','${esc(c.nome)}')">🗑</button></td></tr>`).join('')+'</tbody></table>';
 }
 async function addCliente(){
   var nome=gv('cl-nome');if(!nome){toast('Informe o nome.',false);return;}
@@ -925,6 +949,12 @@ async function addCliente(){
 // ══════════════════════════════════════
 // FINANCEIRO
 // ══════════════════════════════════════
+async function excluirCliente(id,nome){
+  if(!confirm('Excluir o cliente "'+nome+'"?'))return;
+  await sb('clientes','DELETE',null,'?id=eq.'+id);
+  toast('Cliente excluído.');loadClientes();
+}
+
 async function loadFin(){
   var [res,lanc]=await Promise.all([sb('vw_financeiro_mes','GET',null,''),sb('financeiro','GET',null,'?order=data.desc&limit=20')]);
   if(res&&res[0]){
@@ -935,7 +965,7 @@ async function loadFin(){
   }
   var fl=document.getElementById('fin-list');
   if(!lanc||!lanc.length){fl.innerHTML='<div style="font-size:12px;color:var(--tl);padding:8px">Nenhum lançamento ainda.</div>';return;}
-  fl.innerHTML=lanc.map(l=>`<div class="frow"><div><div>${esc(l.descricao)}</div><div style="font-size:10px;color:var(--tl)">${fmtD(l.data)} · ${l.status}</div></div><div class="${l.tipo==='receita'?(l.status==='recebido'?'fp':'fw'):'fn'}">${l.tipo==='receita'?'+':'-'} ${fmtR(l.valor)}</div></div>`).join('');
+  fl.innerHTML=lanc.map(l=>`<div class="frow"><div><div>${esc(l.descricao)}</div><div style="font-size:10px;color:var(--tl)">${fmtD(l.data)} · ${l.status}</div></div><div style="display:flex;align-items:center;gap:10px"><span class="${l.tipo==='receita'?(l.status==='recebido'?'fp':'fw'):'fn'}">${l.tipo==='receita'?'+':'-'} ${fmtR(l.valor)}</span><button class="btn" style="border-color:var(--err);color:var(--err);padding:3px 8px;font-size:10px" onclick="excluirFin('${l.id}')">🗑</button></div></div>`).join('');
 }
 async function addFin(){
   var desc=gv('fn-desc');if(!desc){toast('Informe a descrição.',false);return;}
@@ -947,12 +977,23 @@ async function addFin(){
 // ══════════════════════════════════════
 // AGENDA
 // ══════════════════════════════════════
+async function excluirFin(id){
+  if(!confirm('Excluir este lançamento?'))return;
+  await sb('financeiro','DELETE',null,'?id=eq.'+id);
+  toast('Lançamento excluído.');loadFin();loadDash();
+}
+
 async function loadAgenda(){
   var d=document.getElementById('agenda-list');
   var hoje=new Date().toISOString().split('T')[0];
   var ev=await sb('agenda','GET',null,'?data=gte.'+hoje+'&order=data.asc,horario.asc&limit=10');
   if(!ev||!ev.length){d.innerHTML='<div style="font-size:12px;color:var(--tl);padding:8px">Nenhum compromisso próximo.</div>';return;}
-  d.innerHTML=ev.map(a=>`<div class="ai"><div class="at">${fmtD(a.data)}<br>${a.horario?a.horario.slice(0,5):''}</div><div><div class="an">${esc(a.titulo)}</div><div class="as">${esc(a.local_link||'')}${a.tipo?' · '+a.tipo:''}</div></div></div>`).join('');
+  d.innerHTML=ev.map(a=>`<div class="ai"><div class="at">${fmtD(a.data)}<br>${a.horario?a.horario.slice(0,5):''}</div><div style="flex:1"><div class="an">${esc(a.titulo)}</div><div class="as">${esc(a.local_link||'')}${a.tipo?' · '+a.tipo:''}</div></div><button class="btn" style="border-color:var(--err);color:var(--err);padding:3px 8px;font-size:10px;flex-shrink:0" onclick="excluirAgenda('${a.id}')">🗑</button></div>`).join('');
+}
+async function excluirAgenda(id){
+  if(!confirm('Excluir este evento?'))return;
+  await sb('agenda','DELETE',null,'?id=eq.'+id);
+  toast('Evento excluído.');loadAgenda();loadDash();
 }
 async function addAgenda(){
   var titulo=gv('ag-titulo');if(!titulo){toast('Informe o título.',false);return;}
@@ -975,8 +1016,13 @@ async function loadPortfolio(){
   var items=await sb('portfolio','GET',null,'?order=ano.desc');
   var emojis={Saúde:'🏥',Comercial:'☕',Residencial:'🏠',Interiores:'🛋️',Reforma:'🔨'};
   if(!items||!items.length){d.innerHTML='<div style="font-size:12px;color:var(--tl);padding:12px">Nenhum projeto no portfólio ainda.</div>';return;}
-  d.innerHTML='<div class="g3">'+items.map(i=>`<div class="pc"><div class="pi">${emojis[i.tipologia]||'🏛️'}</div><div class="pn"><div class="pnm">${esc(i.nome)}</div><div class="pm">${esc(i.tipologia||'')}${i.area_m2?' · '+i.area_m2+'m²':''}${i.ano?' · '+i.ano:''}</div>${i.estilo?'<div style="margin-top:5px"><span class="bx bv">'+esc(i.estilo)+'</span></div>':''}</div></div>`).join('')+
+  d.innerHTML='<div class="g3">'+items.map(i=>`<div class="pc"><div class="pi">${emojis[i.tipologia]||'🏛️'}</div><div class="pn"><div class="pnm">${esc(i.nome)}</div><div class="pm">${esc(i.tipologia||'')}${i.area_m2?' · '+i.area_m2+'m²':''}${i.ano?' · '+i.ano:''}</div>${i.estilo?'<div style="margin-top:5px"><span class="bx bv">'+esc(i.estilo)+'</span></div>':''}<button class="btn" style="border-color:var(--err);color:var(--err);padding:3px 8px;font-size:10px;margin-top:8px;width:100%" onclick="excluirPortfolio('${i.id}','${esc(i.nome)}')">🗑 Excluir</button></div></div>`).join('')+
   '<div class="pc" style="display:flex;align-items:center;justify-content:center;min-height:120px;border:.5px dashed var(--vm)" onclick="om(\'m-port\')"><div style="text-align:center;color:var(--tl);font-size:11px">+ adicionar</div></div></div>';
+}
+async function excluirPortfolio(id,nome){
+  if(!confirm('Excluir "'+nome+'" do portfólio?'))return;
+  await sb('portfolio','DELETE',null,'?id=eq.'+id);
+  toast('Removido do portfólio.');loadPortfolio();
 }
 async function addPortfolio(){
   var nome=gv('pt-nome');if(!nome){toast('Informe o nome.',false);return;}
